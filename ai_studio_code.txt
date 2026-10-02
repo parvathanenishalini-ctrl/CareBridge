@@ -1,0 +1,760 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Users, Calendar, AlertCircle, CheckCircle2, Clock, 
+  ChevronRight, Search, Filter, MoreVertical, Phone, 
+  Mail, MessageSquare, ArrowRight, Activity, 
+  LayoutDashboard, UserCircle, Settings, LogOut,
+  CalendarDays, History, ClipboardList, Info
+} from 'lucide-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, BarChart, Bar, Cell 
+} from 'recharts';
+
+// --- MOCK DATA ---
+const INITIAL_PATIENTS = [
+  {
+    id: "P-1001",
+    name: "Sarah Jenkins",
+    age: 64,
+    contact: { phone: "(555) 123-4567", email: "s.jenkins@email.com" },
+    doctor: "Dr. Aris Thorne",
+    lastAppt: "2023-10-12",
+    nextAppt: "2023-11-01",
+    apptStatus: "Missed",
+    careGapStatus: "Care Gap Alert",
+    followUpStatus: "Pending",
+    reason: "",
+    timeline: [
+      { date: "2023-09-15", event: "Initial Consult", status: "completed" },
+      { date: "2023-10-12", event: "Follow-up Diabetes Check", status: "missed" }
+    ]
+  },
+  {
+    id: "P-1002",
+    name: "Michael Chen",
+    age: 42,
+    contact: { phone: "(555) 987-6543", email: "m.chen@email.com" },
+    doctor: "Dr. Sarah Miller",
+    lastAppt: "2023-10-15",
+    nextAppt: "2023-11-15",
+    apptStatus: "Scheduled",
+    careGapStatus: "No Gaps",
+    followUpStatus: "N/A",
+    reason: "",
+    timeline: [
+      { date: "2023-10-15", event: "Routine Physical", status: "completed" },
+      { date: "2023-11-15", event: "Bloodwork Review", status: "upcoming" }
+    ]
+  },
+  {
+    id: "P-1003",
+    name: "Robert Wilson",
+    age: 71,
+    contact: { phone: "(555) 456-7890", email: "r.wilson@email.com" },
+    doctor: "Dr. Aris Thorne",
+    lastAppt: "2023-10-05",
+    nextAppt: "2023-10-25",
+    apptStatus: "Missed",
+    careGapStatus: "Repeated Missed Appointment",
+    followUpStatus: "In Progress",
+    reason: "Transportation issues",
+    timeline: [
+      { date: "2023-09-20", event: "Cardiology Screening", status: "missed" },
+      { date: "2023-10-05", event: "Medication Review", status: "missed" }
+    ]
+  },
+  {
+    id: "P-1004",
+    name: "Elena Rodriguez",
+    age: 35,
+    contact: { phone: "(555) 222-3333", email: "e.rod@email.com" },
+    doctor: "Dr. James Wilson",
+    lastAppt: "2023-10-20",
+    nextAppt: "2023-11-05",
+    apptStatus: "Rescheduled",
+    careGapStatus: "Care Reconnected",
+    followUpStatus: "Completed",
+    reason: "Work conflict",
+    timeline: [
+      { date: "2023-10-20", event: "Annual Physical", status: "missed" },
+      { date: "2023-10-21", event: "Follow-up Call", status: "completed" },
+      { date: "2023-11-05", event: "Rescheduled Physical", status: "upcoming" }
+    ]
+  },
+  {
+    id: "P-1005",
+    name: "David Smith",
+    age: 58,
+    contact: { phone: "(555) 444-5555", email: "d.smith@email.com" },
+    doctor: "Dr. Sarah Miller",
+    lastAppt: "2023-10-18",
+    nextAppt: "2023-11-10",
+    apptStatus: "Missed",
+    careGapStatus: "Care Gap Alert",
+    followUpStatus: "Pending",
+    reason: "",
+    timeline: [
+      { date: "2023-10-18", event: "Post-Op Follow-up", status: "missed" }
+    ]
+  },
+  {
+    id: "P-1006",
+    name: "Linda Thompson",
+    age: 67,
+    contact: { phone: "(555) 777-8888", email: "l.thompson@email.com" },
+    doctor: "Dr. Aris Thorne",
+    lastAppt: "2023-10-10",
+    nextAppt: "2023-10-30",
+    apptStatus: "Scheduled",
+    careGapStatus: "No Gaps",
+    followUpStatus: "N/A",
+    reason: "",
+    timeline: [
+      { date: "2023-10-10", event: "Blood Pressure Check", status: "completed" }
+    ]
+  },
+  {
+    id: "P-1007",
+    name: "James Baker",
+    age: 52,
+    contact: { phone: "(555) 999-0000", email: "j.baker@email.com" },
+    doctor: "Dr. James Wilson",
+    lastAppt: "2023-10-22",
+    nextAppt: "2023-11-12",
+    apptStatus: "Completed",
+    careGapStatus: "No Gaps",
+    followUpStatus: "N/A",
+    reason: "",
+    timeline: [
+      { date: "2023-10-22", event: "Wellness Visit", status: "completed" }
+    ]
+  },
+  {
+    id: "P-1008",
+    name: "Susan Lee",
+    age: 45,
+    contact: { phone: "(555) 111-2222", email: "s.lee@email.com" },
+    doctor: "Dr. Sarah Miller",
+    lastAppt: "2023-10-14",
+    nextAppt: "2023-10-28",
+    apptStatus: "Missed",
+    careGapStatus: "Care Gap Alert",
+    followUpStatus: "Pending",
+    reason: "",
+    timeline: [
+      { date: "2023-10-14", event: "Dermatology Screening", status: "missed" }
+    ]
+  }
+];
+
+const CHART_DATA = [
+  { name: 'Mon', missed: 4, reconnected: 2 },
+  { name: 'Tue', missed: 7, reconnected: 4 },
+  { name: 'Wed', missed: 5, reconnected: 6 },
+  { name: 'Thu', missed: 8, reconnected: 5 },
+  { name: 'Fri', missed: 3, reconnected: 7 },
+];
+
+const GAP_DISTRIBUTION = [
+  { name: 'Missed Appt', value: 45, color: '#f43f5e' },
+  { name: 'Follow-up Pending', value: 30, color: '#f59e0b' },
+  { name: 'Reconnected', value: 25, color: '#10b981' },
+];
+
+// --- STYLES & SHARED COMPONENTS ---
+const Badge = ({ children, type }) => {
+  const styles = {
+    Missed: "bg-rose-100 text-rose-700 border-rose-200",
+    Scheduled: "bg-blue-100 text-blue-700 border-blue-200",
+    Completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    Rescheduled: "bg-amber-100 text-amber-700 border-amber-200",
+    "Care Gap Alert": "bg-rose-100 text-rose-700 border-rose-200",
+    "Repeated Missed Appointment": "bg-red-200 text-red-800 border-red-300",
+    "Care Reconnected": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "No Gaps": "bg-slate-100 text-slate-600 border-slate-200",
+    "Pending": "bg-amber-100 text-amber-700 border-amber-200",
+    "In Progress": "bg-blue-100 text-blue-700 border-blue-200",
+    "N/A": "bg-slate-100 text-slate-400 border-slate-200"
+  };
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[children] || styles[type] || "bg-slate-100 text-slate-600"}`}>
+      {children}
+    </span>
+  );
+};
+
+// --- MAIN APPLICATION ---
+export default function CareBridge() {
+  const [view, setView] = useState('landing'); // landing, dashboard, patients, detail
+  const [patients, setPatients] = useState(INITIAL_PATIENTS);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeModal, setActiveModal] = useState(null); // reason, contact, reschedule
+  const [notification, setNotification] = useState(null);
+
+  // Derived Stats
+  const stats = useMemo(() => {
+    const total = patients.length;
+    const missed = patients.filter(p => p.apptStatus === "Missed").length;
+    const gaps = patients.filter(p => p.careGapStatus.includes("Gap") || p.careGapStatus.includes("Repeated")).length;
+    const reconnected = patients.filter(p => p.careGapStatus === "Care Reconnected").length;
+    const pendingFollowups = patients.filter(p => p.followUpStatus === "Pending" || p.followUpStatus === "In Progress").length;
+    return { total, missed, gaps, reconnected, pendingFollowups };
+  }, [patients]);
+
+  const showNotification = (msg) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handlePatientUpdate = (patientId, updates) => {
+    setPatients(prev => prev.map(p => {
+      if (p.id === patientId) {
+        const updated = { ...p, ...updates };
+        if (selectedPatient && selectedPatient.id === patientId) {
+          setSelectedPatient(updated);
+        }
+        return updated;
+      }
+      return p;
+    }));
+  };
+
+  // --- ACTIONS ---
+  const recordReason = (reason, notes) => {
+    handlePatientUpdate(selectedPatient.id, {
+      reason,
+      followUpStatus: "In Progress",
+      timeline: [...selectedPatient.timeline, { date: new Date().toISOString().split('T')[0], event: `Reason recorded: ${reason}`, status: 'completed' }]
+    });
+    setActiveModal(null);
+    showNotification("Patient reason for absence recorded.");
+  };
+
+  const logContact = (method) => {
+    handlePatientUpdate(selectedPatient.id, {
+      timeline: [...selectedPatient.timeline, { date: new Date().toISOString().split('T')[0], event: `Contacted via ${method}`, status: 'completed' }]
+    });
+    setActiveModal(null);
+    showNotification(`Demo contact via ${method} logged successfully.`);
+  };
+
+  const rescheduleAppt = (date, time) => {
+    handlePatientUpdate(selectedPatient.id, {
+      nextAppt: date,
+      apptStatus: "Rescheduled",
+      careGapStatus: "Care Reconnected",
+      followUpStatus: "Completed",
+      timeline: [...selectedPatient.timeline, { date: new Date().toISOString().split('T')[0], event: `Rescheduled for ${date} at ${time}`, status: 'upcoming' }]
+    });
+    setActiveModal(null);
+    showNotification("Patient successfully reconnected to care.");
+  };
+
+  // --- RENDERING VIEWS ---
+
+  if (view === 'landing') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full text-center space-y-8 bg-white p-10 rounded-3xl shadow-xl border border-slate-100">
+          <div className="flex justify-center">
+            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+              <Activity size={40} className="text-white" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-slate-900 tracking-tight">CareBridge</h1>
+            <p className="text-slate-500 text-lg">Bridging missed appointments to continuous care.</p>
+          </div>
+          <div className="pt-4">
+            <button 
+              onClick={() => setView('dashboard')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-2 group shadow-lg shadow-blue-100"
+            >
+              Enter Demo Dashboard
+              <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+          <p className="text-xs text-slate-400">
+            Hackathon Prototype • Demo Data Only • No Clinical Predictions
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen">
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Activity size={18} className="text-white" />
+          </div>
+          <span className="font-bold text-xl tracking-tight text-blue-900">CareBridge</span>
+        </div>
+        
+        <nav className="flex-1 px-4 py-4 space-y-1">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'patients', label: 'Patients', icon: Users },
+            { id: 'appointments', label: 'Appointments', icon: CalendarDays },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => { setView(item.id); setSelectedPatient(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                view === item.id || (view === 'detail' && item.id === 'patients')
+                  ? 'bg-blue-50 text-blue-600' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              }`}
+            >
+              <item.icon size={20} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          <button onClick={() => setView('landing')} className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-rose-600 text-sm font-medium transition-colors">
+            <LogOut size={20} />
+            Exit Demo
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
+          <h2 className="font-semibold text-lg capitalize">
+            {view === 'detail' ? 'Patient Review' : view}
+          </h2>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="text" 
+                placeholder="Search patient..." 
+                className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm w-64 focus:ring-2 focus:ring-blue-500 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+              <UserCircle size={20} className="text-slate-500" />
+            </div>
+          </div>
+        </header>
+
+        <div className="p-8 overflow-auto">
+          {/* Notification Toast */}
+          {notification && (
+            <div className="fixed top-20 right-8 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+              <CheckCircle2 size={18} className="text-emerald-400" />
+              <span className="text-sm font-medium">{notification}</span>
+            </div>
+          )}
+
+          {/* DASHBOARD VIEW */}
+          {view === 'dashboard' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              {/* Stat Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { label: "Missed Appointments", val: stats.missed, color: "text-rose-600", bg: "bg-rose-50", icon: AlertCircle },
+                  { label: "Active Care Gaps", val: stats.gaps, color: "text-amber-600", bg: "bg-amber-50", icon: ClipboardList },
+                  { label: "Follow-ups Pending", val: stats.pendingFollowups, color: "text-blue-600", bg: "bg-blue-50", icon: Clock },
+                  { label: "Care Reconnected", val: stats.reconnected, color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 },
+                ].map((s, i) => (
+                  <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-slate-500 text-sm font-medium">{s.label}</p>
+                        <h3 className="text-3xl font-bold mt-1">{s.val}</h3>
+                      </div>
+                      <div className={`p-3 rounded-xl ${s.bg} ${s.color}`}>
+                        <s.icon size={24} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold text-slate-800">Weekly Care Recovery Trend</h3>
+                    <select className="bg-slate-50 border-none text-xs font-semibold rounded-lg px-2 py-1">
+                      <option>Last 7 Days</option>
+                    </select>
+                  </div>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={CHART_DATA}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                        <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                        <Line type="monotone" dataKey="missed" stroke="#f43f5e" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
+                        <Line type="monotone" dataKey="reconnected" stroke="#10b981" strokeWidth={3} dot={{r: 4}} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                  <h3 className="font-bold text-slate-800 mb-6">Care Gap Distribution</h3>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={GAP_DISTRIBUTION} layout="vertical">
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} tick={{fill: '#64748b', fontSize: 11}} />
+                        <Tooltip cursor={{fill: 'transparent'}} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                          {GAP_DISTRIBUTION.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {GAP_DISTRIBUTION.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{backgroundColor: item.color}}></div>
+                          <span className="text-slate-500">{item.name}</span>
+                        </div>
+                        <span className="font-semibold">{item.value}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Priority Follow-ups */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800">Priority Follow-up Actions</h3>
+                  <button onClick={() => setView('patients')} className="text-blue-600 text-sm font-semibold hover:underline">View All Patients</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold">Patient</th>
+                        <th className="px-6 py-4 font-semibold">Care Gap</th>
+                        <th className="px-6 py-4 font-semibold">Missed Date</th>
+                        <th className="px-6 py-4 font-semibold">Status</th>
+                        <th className="px-6 py-4 font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {patients.filter(p => p.apptStatus === "Missed").slice(0, 4).map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-slate-900">{p.name}</div>
+                            <div className="text-xs text-slate-500">{p.id}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge type={p.careGapStatus}>{p.careGapStatus}</Badge>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600">{p.lastAppt}</td>
+                          <td className="px-6 py-4">
+                            <Badge type={p.followUpStatus}>{p.followUpStatus}</Badge>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => { setSelectedPatient(p); setView('detail'); }}
+                              className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                            >
+                              Review <ChevronRight size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PATIENTS LIST VIEW */}
+          {view === 'patients' && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900">Patient Directory</h3>
+                  <p className="text-slate-500">Manage care continuity for all registered patients.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+                    <Filter size={16} /> Filter
+                  </button>
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-shadow shadow-md">
+                    + Add Patient
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold">Patient Name</th>
+                      <th className="px-6 py-4 font-semibold">Doctor</th>
+                      <th className="px-6 py-4 font-semibold">Appt Status</th>
+                      <th className="px-6 py-4 font-semibold">Care Gap</th>
+                      <th className="px-6 py-4 font-semibold">Next Appt</th>
+                      <th className="px-6 py-4 font-semibold text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {patients.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-slate-900">{p.name}</div>
+                          <div className="text-xs text-slate-500">Age {p.age} • {p.id}</div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">{p.doctor}</td>
+                        <td className="px-6 py-4">
+                          <Badge type={p.apptStatus}>{p.apptStatus}</Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge type={p.careGapStatus}>{p.careGapStatus}</Badge>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">{p.nextAppt || 'Not Set'}</td>
+                        <td className="px-6 py-4 text-center">
+                          <button 
+                            onClick={() => { setSelectedPatient(p); setView('detail'); }}
+                            className="bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                          >
+                            View Detail
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* PATIENT DETAIL VIEW / CARE GAP WORKFLOW */}
+          {view === 'detail' && selectedPatient && (
+            <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+              {/* Back Nav */}
+              <button onClick={() => setView('patients')} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium transition-colors">
+                <ChevronRight size={20} className="rotate-180" /> Back to Patient Directory
+              </button>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left: Profile Card */}
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-3xl mb-4">
+                        {selectedPatient.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <h3 className="text-2xl font-bold">{selectedPatient.name}</h3>
+                      <p className="text-slate-500 text-sm mb-4">ID: {selectedPatient.id} • Age: {selectedPatient.age}</p>
+                      
+                      <div className="w-full flex flex-col gap-2 pt-4 border-t border-slate-50">
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                          <Phone size={14} /> {selectedPatient.contact.phone}
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                          <Mail size={14} /> {selectedPatient.contact.email}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-rose-50 p-6 rounded-3xl border border-rose-100">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="text-rose-600 shrink-0" size={24} />
+                      <div>
+                        <h4 className="font-bold text-rose-900">Care Gap Alert</h4>
+                        <p className="text-rose-700 text-sm mt-1">Patient has missed the scheduled appointment on {selectedPatient.lastAppt}. High priority follow-up required to maintain care continuity.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Care Journey & Actions */}
+                <div className="lg:col-span-2 space-y-8">
+                  {/* Action Bar */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <h4 className="font-bold mb-4 text-slate-800">Care Recovery Actions</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <button 
+                        onClick={() => setActiveModal('reason')}
+                        className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-all group"
+                      >
+                        <ClipboardList size={20} className="group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Record Reason</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveModal('contact')}
+                        className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-all group"
+                      >
+                        <MessageSquare size={20} className="group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Contact</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveModal('reschedule')}
+                        className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-all group"
+                      >
+                        <Calendar size={20} className="group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Reschedule</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all opacity-50 cursor-not-allowed">
+                        <CheckCircle2 size={20} />
+                        <span className="text-xs font-bold uppercase tracking-wider">Reconnected</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Timeline */}
+                  <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                    <h4 className="font-bold mb-8 text-slate-800 flex items-center gap-2">
+                      <History size={20} className="text-blue-600" /> 
+                      Care Continuity Journey
+                    </h4>
+                    <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-200 before:via-slate-200 before:to-transparent">
+                      {selectedPatient.timeline.map((event, idx) => (
+                        <div key={idx} className="relative flex items-start gap-6 group">
+                          <div className={`shrink-0 w-10 h-10 rounded-full border-4 border-white shadow-sm flex items-center justify-center z-10 transition-colors ${
+                            event.status === 'missed' ? 'bg-rose-500 text-white' : 
+                            event.status === 'upcoming' ? 'bg-amber-400 text-white' : 'bg-emerald-500 text-white'
+                          }`}>
+                            {event.status === 'missed' ? <AlertCircle size={16} /> : 
+                             event.status === 'upcoming' ? <Clock size={16} /> : <CheckCircle2 size={16} />}
+                          </div>
+                          <div className="bg-slate-50 group-hover:bg-blue-50 p-4 rounded-2xl transition-colors flex-1">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{event.date}</span>
+                            <h5 className="font-bold text-slate-800 mt-1">{event.event}</h5>
+                            <p className="text-sm text-slate-500 mt-1 capitalize">Status: {event.status}</p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Interactive Step for the demo */}
+                      <div className="relative flex items-start gap-6 group">
+                        <div className="shrink-0 w-10 h-10 rounded-full border-4 border-white shadow-sm flex items-center justify-center z-10 bg-blue-100 text-blue-600 animate-pulse">
+                          <MoreVertical size={16} />
+                        </div>
+                        <div className="border-2 border-dashed border-blue-200 p-4 rounded-2xl flex-1 bg-white">
+                          <h5 className="font-bold text-blue-600">Pending Action</h5>
+                          <p className="text-sm text-blue-500">Awaiting coordination to bridge the care gap.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <footer className="p-6 border-t border-slate-200 text-center text-slate-400 text-xs">
+          CareBridge — Healthcare Care Continuity Prototype • Demo application using fictional data only.
+        </footer>
+      </main>
+
+      {/* MODALS */}
+      {activeModal === 'reason' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold mb-2">Record Absence Reason</h3>
+            <p className="text-slate-500 text-sm mb-6">This helps identify systemic barriers to care.</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-2">
+                {['Transportation problem', 'Forgot appointment', 'Work/schedule conflict', 'Cost concern', 'Communication issue'].map((r) => (
+                  <button 
+                    key={r}
+                    onClick={() => recordReason(r, "")}
+                    className="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-blue-300 hover:bg-blue-50 transition-all text-sm font-medium"
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setActiveModal(null)} className="w-full py-3 text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'contact' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl">
+            <h3 className="text-xl font-bold mb-6">Initiate Patient Contact</h3>
+            <div className="space-y-4">
+              <button onClick={() => logContact('Phone')} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all">
+                <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Phone size={20} /></div>
+                <div className="text-left">
+                  <div className="font-bold">Voice Call</div>
+                  <div className="text-xs text-slate-500">{selectedPatient.contact.phone}</div>
+                </div>
+              </button>
+              <button onClick={() => logContact('SMS')} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all">
+                <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><MessageSquare size={20} /></div>
+                <div className="text-left">
+                  <div className="font-bold">Text Message (SMS)</div>
+                  <div className="text-xs text-slate-500">Automated outreach</div>
+                </div>
+              </button>
+              <button onClick={() => logContact('Email')} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all">
+                <div className="p-3 bg-purple-100 text-purple-600 rounded-xl"><Mail size={20} /></div>
+                <div className="text-left">
+                  <div className="font-bold">Email Portal</div>
+                  <div className="text-xs text-slate-500">{selectedPatient.contact.email}</div>
+                </div>
+              </button>
+              <button onClick={() => setActiveModal(null)} className="w-full py-3 text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'reschedule' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl">
+            <h3 className="text-xl font-bold mb-2">Reschedule Appointment</h3>
+            <p className="text-slate-500 text-sm mb-6">Confirm a new time to reconnect {selectedPatient.name} to care.</p>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Select Date</label>
+                <input type="date" className="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500" defaultValue="2023-11-15" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Select Time</label>
+                <select className="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500">
+                  <option>09:00 AM</option>
+                  <option>10:30 AM</option>
+                  <option>02:15 PM</option>
+                  <option>04:00 PM</option>
+                </select>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button onClick={() => setActiveModal(null)} className="flex-1 py-3 text-slate-400 font-bold text-sm uppercase tracking-widest hover:text-slate-600">Cancel</button>
+                <button 
+                  onClick={() => rescheduleAppt("2023-11-15", "10:30 AM")}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
